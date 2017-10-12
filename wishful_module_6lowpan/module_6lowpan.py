@@ -31,7 +31,7 @@ class SixlowpanModule(wishful_module.AgentModule):
     def start_packetflow(self, dest_ip, port):
         self.log.debug("Start iperf client.")
         client = iperf3.Client()
-        client.duration = 1
+        client.duration = 5
         client.server_hostname = dest_ip
         client.port = port
         for i in range(10):
