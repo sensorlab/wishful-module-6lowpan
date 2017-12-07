@@ -4,7 +4,8 @@ import wishful_upis as upis
 import wishful_framework as wishful_module
 from wishful_framework.classes import exceptions
 
-import iperf3
+import asyncio
+from aiocoap import *
 from time import sleep
 
 __author__ = "Matevz Vucnik"
@@ -14,30 +15,23 @@ __email__ = "matevz.vucnik@ijs.si"
 
 @wishful_module.build_module
 class SixlowpanModule(wishful_module.AgentModule):
+    uri = None
+    run = None
 
-    def __init__(self):
+    def __init__(self, uri):
         super(SixlowpanModule, self).__init__()
         self.log = logging.getLogger('SixlowpanModule')
+        self.uri = uri
+        self.run = asyncio.get_event_loop().run_until_complete
 
-    @wishful_module.bind_function(upis.net.create_packetflow_sink)
-    def create_packetflow_sink(self, port):
-        self.log.debug("Starts iperf server on port {}".format(port))
-        server = iperf3.Server()
-        server.port = port
-        server.run()
-        return "Iperf server exited"
+    @asyncio.coroutine
+    def get_rssi_lqi(self):
+        protocol = yield from Context.create_client_context()
+        msg = Message(code=GET, uri=self.uri)
+        response = yield from protocol.request(msg).response
+        return response.payload
 
-    @wishful_module.bind_function(upis.net.start_packetflow)
-    def start_packetflow(self, dest_ip, port):
-        self.log.debug("Start iperf client.")
-        client = iperf3.Client()
-        client.duration = 5
-        client.server_hostname = dest_ip
-        client.port = port
-        for i in range(10):
-            result = client.run()
-            if result.error:
-                sleep(1)
-            else:
-                break
-        return result
+    @wishful_module.bind_function(upis.radio.get_measurements)
+    def get_measurements(self, params):
+        response = self.run(self.get_rssi_lqi())
+        return {response.payload}
