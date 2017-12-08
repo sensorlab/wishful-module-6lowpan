@@ -29,9 +29,14 @@ class SixlowpanModule(wishful_module.AgentModule):
         protocol = yield from Context.create_client_context()
         msg = Message(code=GET, uri=self.uri)
         response = yield from protocol.request(msg).response
-        return response.payload
+        return str(response.payload)
 
     @wishful_module.bind_function(upis.radio.get_measurements)
     def get_measurements(self, params):
         response = self.run(self.get_rssi_lqi())
-        return {response.payload}
+
+        # message sample "LQI=255;RSSI=-70;"
+        lqi = response.split(';')[0].split('=')[1]
+        rssi = response.split(';')[1].split('=')[1]
+
+        return { "RSSI":int(rssi), "LQI":int(lqi) }
